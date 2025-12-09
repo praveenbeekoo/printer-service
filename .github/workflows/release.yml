@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '7.0.x'
+
+      - name: Restore
+        run: dotnet restore src\PrinterService
+
+      - name: Build
+        run: dotnet build src\PrinterService -c Release --no-restore
+
+      - name: Test
+        run: dotnet test tests\PrinterService.Tests -c Release --no-build --nologo
+
+      - name: Publish
+        run: dotnet publish src\PrinterService -c Release -r win-x64 -o src\PrinterService\publish --no-build
+
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload release artifact
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: src\PrinterService\publish\PrinterService.exe
+          asset_name: PrinterService-${{ github.ref_name }}-win-x64.exe
+          asset_content_type: application/octet-stream
+
+      - name: Upload installer scripts
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: tools\install.ps1
+          asset_name: install-PrinterService-${{ github.ref_name }}.ps1
+          asset_content_type: application/octet-stream
+
+      - name: Upload uninstall script
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: tools\uninstall.ps1
+          asset_name: uninstall-PrinterService-${{ github.ref_name }}.ps1
+          asset_content_type: application/octet-stream
