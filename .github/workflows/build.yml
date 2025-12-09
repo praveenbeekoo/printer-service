@@ -1,4 +1,3 @@
-
 name: Build Printer HTTP Service
 
 on:
@@ -8,15 +7,28 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-dotnet@v4
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup .NET SDK + Desktop
+      uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '8.0.x'
+        dotnet-version: 8.0.x
         include-windows-desktop: true
-    - run: dotnet restore ./src/PrinterHttpService/PrinterHttpService.csproj
-    - run: dotnet publish ./src/PrinterHttpService/PrinterHttpService.csproj -c Release -r win-x64 --self-contained true -o ./build/win-x64
-    - uses: actions/upload-artifact@v4
+
+    - name: Install ASP.NET Core Runtime (needed for Hosting Extensions)
+      run: choco install dotnet-8.0-aspnetcore-runtime -y
+
+    - name: Restore
+      run: dotnet restore ./src/PrinterHttpService/PrinterHttpService.csproj
+
+    - name: Publish
+      run: dotnet publish ./src/PrinterHttpService/PrinterHttpService.csproj -c Release -r win-x64 --self-contained true -o ./build/win-x64
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
       with:
-        name: build
+        name: printer-http-service
         path: ./build/win-x64
