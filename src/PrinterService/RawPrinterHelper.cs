@@ -1,4 +1,79 @@
 using System;
+using System.Runtime.InteropServices;
+
+namespace PrinterService;
+internal static class RawPrinterHelper
+	[StructLayout(LayoutKind.Sequential)]
+	private class DOCINFOA
+	{
+		[MarshalAs(UnmanagedType.LPStr)] public string pDocName;
+		[MarshalAs(UnmanagedType.LPStr)] public string pOutputFile;
+		[MarshalAs(UnmanagedType.LPStr)] public string pDataType;
+	}
+
+	[DllImport("winspool.drv", SetLastError = true, CharSet = CharSet.Auto)]
+	private static extern bool OpenPrinter(string pPrinterName, out IntPtr phPrinter, IntPtr pDefault);
+	[DllImport("winspool.drv", SetLastError = true, CharSet = CharSet.Auto)]
+	private static extern bool ClosePrinter(IntPtr hPrinter);
+
+	[DllImport("winspool.drv", SetLastError = true, CharSet = CharSet.Auto)]
+	private static extern bool StartDocPrinter(IntPtr hPrinter, Int32 level, [In] DOCINFOA di);
+
+	[DllImport("winspool.drv", SetLastError = true)]
+	private static extern bool EndDocPrinter(IntPtr hPrinter);
+	[DllImport("winspool.drv", SetLastError = true)]
+	private static extern bool StartPagePrinter(IntPtr hPrinter);
+
+	[DllImport("winspool.drv", SetLastError = true)]
+	private static extern bool EndPagePrinter(IntPtr hPrinter);
+
+	[DllImport("winspool.drv", SetLastError = true)]
+	private static extern bool WritePrinter(IntPtr hPrinter, IntPtr pBytes, Int32 dwCount, out Int32 dwWritten);
+	public static void SendBytesToPrinter(string printerName, byte[] bytes)
+	{
+		if (bytes == null || bytes.Length == 0) throw new ArgumentException("No data to print", nameof(bytes));
+
+		if (!OpenPrinter(printerName, out var hPrinter, IntPtr.Zero))
+		{
+			var err = Marshal.GetLastWin32Error();
+			throw new InvalidOperationException($"OpenPrinter failed with error {err}");
+		}
+
+		var di = new DOCINFOA { pDocName = "Raw Document", pDataType = "RAW" };
+		if (!StartDocPrinter(hPrinter, 1, di))
+		{
+			ClosePrinter(hPrinter);
+			var err = Marshal.GetLastWin32Error();
+			throw new InvalidOperationException($"StartDocPrinter failed with error {err}");
+		}
+		if (!StartPagePrinter(hPrinter))
+		{
+			EndDocPrinter(hPrinter);
+			ClosePrinter(hPrinter);
+			var err = Marshal.GetLastWin32Error();
+			throw new InvalidOperationException($"StartPagePrinter failed with error {err}");
+		}
+
+		var unmanagedBytes = Marshal.AllocCoTaskMem(bytes.Length);
+		try
+		{
+			Marshal.Copy(bytes, 0, unmanagedBytes, bytes.Length);
+			if (!WritePrinter(hPrinter, unmanagedBytes, bytes.Length, out var written) || written != bytes.Length)
+			{
+				var err = Marshal.GetLastWin32Error();
+				throw new InvalidOperationException($"WritePrinter failed with error {err}");
+			}
+		}
+		finally
+		{
+			Marshal.FreeCoTaskMem(unmanagedBytes);
+			EndPagePrinter(hPrinter);
+			EndDocPrinter(hPrinter);
+			ClosePrinter(hPrinter);
+		}
+	}
+}
+using System;
 using System.IO;
 using System.Runtime.InteropServices;
 
