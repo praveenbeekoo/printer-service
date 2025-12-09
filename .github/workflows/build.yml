@@ -1,32 +1,22 @@
+
 name: Build Printer HTTP Service
 
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
 
 jobs:
-  build-windows:
+  build:
     runs-on: windows-latest
-
     steps:
-    - name: Checkout Repo
-      uses: actions/checkout@v4
-
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+    - uses: actions/checkout@v4
+    - uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
-
-    - name: Restore Dependencies
-      run: dotnet restore ./src/PrinterHttpService/PrinterHttpService.csproj
-
-    - name: Build Release
-      run: dotnet publish ./src/PrinterHttpService/PrinterHttpService.csproj -c Release -r win-x64 --self-contained true -o ./build/win-x64
-
-    - name: Upload Build Artifact
-      uses: actions/upload-artifact@v4
+        include-windows-desktop: true
+    - run: dotnet restore ./src/PrinterHttpService/PrinterHttpService.csproj
+    - run: dotnet publish ./src/PrinterHttpService/PrinterHttpService.csproj -c Release -r win-x64 --self-contained true -o ./build/win-x64
+    - uses: actions/upload-artifact@v4
       with:
-        name: printer-http-service-win-x64
+        name: build
         path: ./build/win-x64
