@@ -1,28 +1,74 @@
-# printer-service
+# Windows Printer HTTP Service
 
-This repository implements the Windows Printer HTTP Service (WPHS) — a lightweight Windows Service that exposes local printers over HTTP and accepts raw ESC/POS data.
+This project is a Windows Service that exposes local printers over a simple HTTP API and supports sending raw ESC/POS commands using HEX or Base64.
 
-## Project: `src/PrinterService`
+## Features
 
-Quick start (requires .NET 7 SDK):
+- Enumerate installed printers via HTTP
+- Print raw ESC/POS commands via HEX (`/print`)
+- Print raw ESC/POS commands via Base64 (`/print/base64`)
+- Runs as a Windows Service
+- Minimal dependencies (.NET 8, HttpListener, Win32 spooler API)
 
-```cmd
-cd src\PrinterService
-dotnet publish -c Release -r win-x64 -o publish
+## Endpoints
+
+### `GET /printers`
+
+Returns a JSON list of printers:
+
+```json
+[
+  {
+    "name": "POS-80",
+    "status": "None",
+    "isOffline": false,
+    "isBusy": false,
+    "location": ""
+  }
+]
 ```
 
-Install as Windows Service (run as Administrator):
+### `POST /print` (HEX)
 
-```cmd
-sc create PrinterService binPath= "C:\\Path\\To\\PrinterService.exe" start= auto
-sc start PrinterService
+```json
+{
+  "printer": "POS-80",
+  "data": "1B40 48 65 6C 6C 6F 0A"
+}
 ```
 
-Remove service:
+### `POST /print/base64`
 
-```cmd
-sc stop PrinterService
-sc delete PrinterService
+```json
+{
+  "printer": "POS-80",
+  "data": "GxBIZWxsbwo="
+}
 ```
 
-Service listens on `http://localhost:8080/` by default. See the SRS (`srs.txt`) for API details.
+## Build
+
+```bash
+dotnet restore ./src/PrinterHttpService/PrinterHttpService.csproj
+dotnet publish ./src/PrinterHttpService/PrinterHttpService.csproj -c Release -r win-x64 --self-contained true -o ./build/win-x64
+```
+
+## Install as Windows Service
+
+From an elevated PowerShell console:
+
+```powershell
+sc create PrinterHttpService binPath= "C:\Path\To\PrinterHttpService.exe"
+sc start PrinterHttpService
+```
+
+To remove:
+
+```powershell
+sc stop PrinterHttpService
+sc delete PrinterHttpService
+```
+
+## License
+
+MIT (or your preferred license).
